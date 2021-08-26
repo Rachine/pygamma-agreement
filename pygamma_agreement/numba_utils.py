@@ -25,6 +25,7 @@
 
 import numba as nb
 import numpy as np
+from typing import List, Callable
 
 
 @nb.njit(nb.float32(nb.types.string, nb.types.string))
@@ -44,19 +45,20 @@ def levenshtein(str1: str, str2: str):
     return matrix_lev[-1, -1]
 
 
-@nb.njit(nb.int16[:, ::1](nb.int16[:, ::1], nb.int64), parallel=True)
+@nb.njit(nb.int16[:, ::1](nb.int16[:, ::1], nb.int64))
 def extend_right_alignments(arr: np.ndarray, n: int):
     i, j = arr.shape
-    new_array = np.empty((i, j + n), dtype=np.int16)
-    new_array[:, :j] = arr
+    new_array = np.empty((i + n, j), dtype=np.int16)
+    new_array[:i, :] = arr
     return new_array
 
 
-@nb.njit(nb.float32[:](nb.float32[:], nb.int64), parallel=True)
+@nb.njit(nb.float32[:](nb.float32[:], nb.int64))
 def extend_right_disorders(arr: np.ndarray, n: int):
     new_array = np.empty(len(arr) + n, dtype=np.float32)
     new_array[:len(arr)] = arr
     return new_array
+
 
 @nb.njit()
 def iter_tuples(sizes: np.ndarray):
@@ -74,6 +76,36 @@ def iter_tuples(sizes: np.ndarray):
             current[i] = 0
         else:
             return
+
+
+@nb.njit(nb.float32[:, ::1](nb.int16[:, :],
+                            nb.int32[:]))
+def build_A(possible_unitary_alignments: np.ndarray,
+            sizes: np.ndarray):
+    nb_units = np.sum(sizes)
+    n = len(possible_unitary_alignments)
+    A = np.zeros((nb_units, n), dtype=np.float32)
+    for p_id, unit_ids_tuple in enumerate(possible_unitary_alignments):
+        annotator_units_start = 0
+        for annotator_id, unit_id in enumerate(unit_ids_tuple):
+            if unit_id != sizes[annotator_id]:  # Non-null unit
+                A[annotator_units_start + unit_id, p_id] = 1
+            annotator_units_start += sizes[annotator_id]
+    return A
+
+
+@nb.njit(nb.float32[:, ::1](nb.int32,
+                            nb.int32[:]))
+def build_K(nb_units: int, sizes: np.ndarray):
+    nb_annotators = len(sizes)
+
+    annotator_units = np.zeros((nb_annotators, nb_units), dtype=np.float32)
+    index = 0
+    for i, size in enumerate(sizes):
+        for j in range(index, index + size):
+            annotator_units[i, j] = 1
+        index += size
+    return annotator_units
 
 
 

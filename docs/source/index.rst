@@ -48,8 +48,8 @@ then:
    quickstart
    principles
    cli
-   api_reference
    how-to-s
    issues
    performance
+   api_reference
    changelog

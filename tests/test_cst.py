@@ -160,6 +160,7 @@ def test_cst_benchmark():
                 cst.magnitude = m
                 cont_cst = cst.corpus_shuffle(nb_annotators, shift=True, split=True, false_neg=True, cat_shuffle=True)
                 gamma_results = cont_cst.compute_gamma(dissim,
-                                                       sampler=ShuffleContinuumSampler())
+                                                       sampler=ShuffleContinuumSampler(),
+                                                       fast=True)
                 gamma = gamma_results.gamma
                 gamma_cat = gamma_results.gamma_cat

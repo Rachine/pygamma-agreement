@@ -128,7 +128,7 @@ Now, the dissimilarity is ready to be used !
 Setting up your own categorical dissimilarity
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For many reasons,  string types are not easy to manipulate in ``numba`` ``njit`` ed code.
+For many reasons,  string types are not easy to manipulate in ``numba`` ``njit``'ed code.
 Instead, category-to-category dissimilarities are pre-computed at the python level. Thus, there is a very simple
 interface avaible : You just need to inherit the ``LambdaCategoricalDissimilarity``, and override the
 ``cat_dissim_func`` static method :

@@ -39,7 +39,7 @@ class CorpusShufflingTool:
     (https://www.aclweb.org/anthology/J15-3003.pdf#page=30).
     """
     SHIFT_FACTOR = 2
-    SPLIT_FACTOR = 5
+    SPLIT_FACTOR = 2.5
     FALSE_POS_FACTOR = 1
 
     def __init__(self,
@@ -95,8 +95,8 @@ class CorpusShufflingTool:
                 continuum.remove(annotator, unit)
                 start_seg, end_seg = 0.0, 0.0
                 while start_seg >= end_seg:
-                    start_seg = unit.segment.start + np.random.uniform(-shift_max, shift_max)
-                    end_seg = unit.segment.end + np.random.uniform(-shift_max, shift_max)
+                    start_seg = unit.segment.start + np.random.uniform(-1, 1) * shift_max
+                    end_seg = unit.segment.end + np.random.uniform(-1, 1) * shift_max
                 continuum.add(annotator, Segment(start_seg, end_seg), unit.annotation)
 
     def false_neg_shuffle(self, continuum: Continuum) -> None:
@@ -196,16 +196,23 @@ class CorpusShufflingTool:
         and the number of units in the reference.
         A splitted segment can be re-splitted.
         """
-        for annotator in continuum.annotators:
-            units = continuum._annotations[annotator]
-            for _ in range(int(self.magnitude * self.SPLIT_FACTOR * len(units))):
+        for _ in range(int(self.magnitude *
+                           self.SPLIT_FACTOR *
+                           self._reference_continuum.avg_num_annotations_per_annotator)):
+            for annotator in continuum.annotators:
+                units = continuum._annotations[annotator]
                 to_split = units.pop(numpy.random.randint(0, len(units)))
                 security = (to_split.segment.end - to_split.segment.start) * 0.01
                 cut = numpy.random.uniform(to_split.segment.start + security, to_split.segment.end)
 
-                continuum.add(annotator, Segment(cut, to_split.segment.end), to_split.annotation)
-                continuum.add(annotator, Segment(to_split.segment.start, cut), to_split.annotation)
-                del to_split
+
+                try:
+                    continuum.add(annotator, Segment(cut, to_split.segment.end), to_split.annotation)
+                    continuum.add(annotator, Segment(to_split.segment.start, cut), to_split.annotation)
+                except ValueError:
+                    continuum.add(annotator, to_split.segment, to_split.annotation)
+                    continuum.add(annotator, to_split.segment, to_split.annotation)
+
 
     def corpus_shuffle(self,
                        annotators: Union[int, Iterable[str]],

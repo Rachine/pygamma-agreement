@@ -31,7 +31,8 @@ Alignement and disorder
 from abc import ABCMeta, abstractmethod
 from collections import Counter
 from typing import Tuple, Optional, Iterable, Iterator, List, TYPE_CHECKING, Union
-from sortedcontainers import SortedSet
+from sortedcontainers import SortedSet, SortedDict
+from itertools import chain
 
 import numba as nb
 import numpy as np
@@ -370,5 +371,73 @@ class Alignment(AbstractAlignment):
 
         from .notebook import repr_alignment
         return repr_alignment(self)
+
+
+class SoftAlignment(Alignment):
+
+    def __init__(self,
+                 unitary_alignments: Iterable[UnitaryAlignment],
+                 continuum: Optional['Continuum'] = None,
+                 check_validity: bool = False,
+                 disorder: Optional[float] = None
+                 ):
+        super().__init__(unitary_alignments, continuum, check_validity, disorder)
+
+    def check(self, continuum: Optional[Continuum] = None):
+        """
+                Checks that an alignment is a valid partition of a Continuum. That is,
+                that all annotations from the referenced continuum *can be found*
+                in the alignment that its factors sum up to one.
+
+                Parameters
+                ----------
+                continuum: optional Continuum
+                    Continuum to check the alignment against. If none is specified,
+                    will try to use the one set at instanciation.
+
+                Raises
+                -------
+                ValueError, SetPartitionError
+                """
+        if continuum is None:
+            if self.continuum is None:
+                raise ValueError("No continuum was set")
+            continuum = self.continuum
+
+        # simple check: verify that all unitary alignments have the same length
+        first_len = len(self.unitary_alignments[0].n_tuple)
+        for unit_align in self.unitary_alignments:
+            if len(unit_align.n_tuple) != first_len:
+                raise ValueError(
+                    f"Unitary alignments {self.unitary_alignments[0]} and"
+                    f"{unit_align} don't have the same amount of units tuples")
+
+        unit_occurences = SortedDict({annotator: SortedDict({unit: 0 for unit in units})
+                                      for annotator, units in continuum._annotations.items()})
+
+        for i, unitary_align in enumerate(self):
+            for annotator, unit in unitary_align.n_tuple:
+                if unit is not None:
+                    unit_occurences[annotator][unit] += 1
+
+        for annotator, factors in unit_occurences.items():
+            for unit, factor in factors.items():
+                if factor == 0:
+                    raise SetPartitionError(f"All non-empty units in the continuum do not have at least 1 occurence in "
+                                            f"the soft alignment. Exception found : unit '{unit}' from annotator "
+                                            f"'{annotator}'.")
+
+    def compute_disorder(self, dissimilarity: AbstractDissimilarity):
+        """
+        Recalculates the disorder of this alignment using the given dissimilarity computer.
+        Usually not needed since most alignment are generated from a minimal disorder.
+        """
+        disorders = dissimilarity.compute_disorder(self)
+        for i, disorder in enumerate(disorders):
+            self.unitary_alignments[i].disorder = disorder
+        self._disorder = np.sum(disorders) / self.avg_num_annotations_per_annotator
+        return self._disorder
+
+
 
 
